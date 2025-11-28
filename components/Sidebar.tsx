@@ -11,6 +11,7 @@ import {
   X,
   BicepsFlexed,
   User,
+  Activity, // ícone para Sessões
 } from "lucide-react";
 
 interface SidebarProps {
@@ -22,11 +23,14 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
   const pathname = usePathname();
 
+  // Ordem organizada pensando no fluxo:
+  // 1) Visão Geral -> 2) Registrar Sessão -> 3) Meus Treinos -> 4) Metas -> 5) Exercícios
   const mainItems = [
     { name: "Visão Geral", icon: LayoutDashboard, href: "/dashboard" },
-    { name: "Exercícios de Musculação", icon: BicepsFlexed, href: "/dashboard/exercises" },
+    { name: "Registrar Sessão", icon: Activity, href: "/dashboard/sessions" },
     { name: "Meus Treinos", icon: Dumbbell, href: "/dashboard/history" },
     { name: "Metas", icon: Target, href: "/dashboard/goals" },
+    { name: "Exercícios de Musculação", icon: BicepsFlexed, href: "/dashboard/exercises" },
   ];
 
   const profileItem = { name: "Meu Perfil", icon: User, href: "/dashboard/profile" };
@@ -42,7 +46,7 @@ export default function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
     <>
       {/* Overlay Mobile */}
       <div
-        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity lg:hidden ${
+        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
@@ -64,7 +68,7 @@ export default function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
               <img
                 src="/placeholder-logo-white.png"
                 alt="+Fôlego Logo"
-                className="h-8 w-auto object-contain"
+                className="h-8 w-auto object-contain transition-transform duration-200 hover:scale-105"
               />
             </div>
 
@@ -92,20 +96,27 @@ export default function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                     href={item.href}
                     onClick={onClose}
                     className={`
+                      group
                       flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
-                      transition-colors
+                      transition-all duration-200
                       ${
                         active
-                          ? "bg-slate-900 text-white"
+                          ? "bg-slate-900 text-white shadow-sm"
                           : "text-slate-400 hover:bg-slate-900 hover:text-white"
                       }
                     `}
                   >
                     <item.icon
                       size={18}
-                      className={active ? "text-red-400" : "text-slate-500"}
+                      className={`
+                        transition-transform duration-200
+                        ${active ? "text-red-400" : "text-slate-500 group-hover:text-red-300"}
+                        group-hover:scale-110
+                      `}
                     />
-                    <span className="truncate">{item.name}</span>
+                    <span className="truncate group-hover:translate-x-0.5 transition-transform duration-200">
+                      {item.name}
+                    </span>
                   </Link>
                 );
               })}
@@ -124,20 +135,27 @@ export default function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
                     href={profileItem.href}
                     onClick={onClose}
                     className={`
+                      group
                       flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
-                      transition-colors
+                      transition-all duration-200
                       ${
                         active
-                          ? "bg-slate-900 text-white"
+                          ? "bg-slate-900 text-white shadow-sm"
                           : "text-slate-400 hover:bg-slate-900 hover:text-white"
                       }
                     `}
                   >
                     <Icon
                       size={18}
-                      className={active ? "text-red-400" : "text-slate-500"}
+                      className={`
+                        transition-transform duration-200
+                        ${active ? "text-red-400" : "text-slate-500 group-hover:text-red-300"}
+                        group-hover:scale-110
+                      `}
                     />
-                    <span className="truncate">{profileItem.name}</span>
+                    <span className="truncate group-hover:translate-x-0.5 transition-transform duration-200">
+                      {profileItem.name}
+                    </span>
                   </Link>
                 );
               })()}
@@ -148,9 +166,12 @@ export default function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
           <div className="border-t border-slate-800/60 px-4 py-3 bg-slate-950">
             <button
               onClick={onLogout}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+              className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
             >
-              <LogOut size={18} />
+              <LogOut
+                size={18}
+                className="transition-transform duration-200 group-hover:translate-x-0.5"
+              />
               <span>Sair da conta</span>
             </button>
           </div>

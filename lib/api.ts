@@ -3,7 +3,7 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 if (!API_URL) {
-  throw new Error("NEXT_PUBLIC_API_URL não está definida no .env.local");
+  throw new Error("NEXT_PUBLIC_API_URL=http://localhost:8000");
 }
 
 interface ApiFetchOptions extends RequestInit {
@@ -114,17 +114,19 @@ export interface Exercicio {
   grupo_muscular: string;
   equipamento: string;
 }
-export interface SessaoAtividade {
+export interface MarcacaoHabito {
   id: number;
-  usuario: number;
-  modalidade: 'corrida' | 'ciclismo' | 'musculacao';
-  inicio_em: string; // ISO datetime
-  duracao_seg: number | null;
-  calorias: number | null;
-  observacoes: string | null;
-  criado_em: string; // ISO datetime
+  meta: number;           // id da meta de hábito
+  data: string;           // "YYYY-MM-DD"
+  concluido: boolean;
+  sessao: number | null;  // opcional: vincular à sessão
 }
-
+export interface MarcacaoHabitoInput {
+  meta: number;
+  data: string;
+  concluido: boolean;
+  sessao: number | null;
+}
 /* ========================================== */
 /* FUNÇÕES DE AUTENTICAÇÃO          */
 /* ========================================== */
@@ -349,6 +351,352 @@ export async function deleteSessaoAtividade(
 ) {
   return apiFetch<{ detail?: string }>(`/api/sessoes-atividade/${id}/`, {
     method: 'DELETE',
+    authToken: accessToken,
+  });
+}
+
+export interface SessaoAtividade {
+  id: number;
+  usuario: number;
+  modalidade: "corrida" | "ciclismo" | "musculacao";
+  inicio_em: string;         // ISO datetime
+  duracao_seg: number | null;
+  calorias: number | null;
+  observacoes: string | null;
+  criado_em: string;         // ISO datetime
+}
+
+export interface SessaoAtividadeInput {
+  modalidade: "corrida" | "ciclismo" | "musculacao";
+  inicio_em: string;               // ISO datetime
+  duracao_seg?: number | null;
+  calorias?: number | null;
+  observacoes?: string | null;
+}
+
+// Criar sessão (POST /api/sessoes-atividade/)
+export async function createSessaoAtividade(
+  accessToken: string,
+  data: SessaoAtividadeInput
+) {
+  return apiFetch<SessaoAtividade>("/api/sessoes-atividade/", {
+    method: "POST",
+    authToken: accessToken,
+    body: JSON.stringify(data),
+  });
+}
+
+// Buscar sessão por ID (GET /api/sessoes-atividade/:id/)
+export async function getSessaoAtividadeById(
+  accessToken: string,
+  id: number
+) {
+  return apiFetch<SessaoAtividade>(`/api/sessoes-atividade/${id}/`, {
+    method: "GET",
+    authToken: accessToken,
+  });
+}
+
+// Atualizar sessão (PUT /api/sessoes-atividade/:id/)
+export async function updateSessaoAtividade(
+  accessToken: string,
+  id: number,
+  data: SessaoAtividadeInput
+) {
+  return apiFetch<SessaoAtividade>(`/api/sessoes-atividade/${id}/`, {
+    method: "PUT",
+    authToken: accessToken,
+    body: JSON.stringify(data),
+  });
+}
+
+// (Você já tem deleteSessaoAtividade e getSessoesAtividade, ok!)
+
+
+// ==========================================
+// MÉTRICAS DE CORRIDA
+// ==========================================
+
+export interface MetricasCorrida {
+  sessao: number;               // PK = id da sessão
+  distancia_km: string;         // decimal em string
+  ritmo_medio_seg_km: number;
+  fc_media: number | null;
+}
+
+export interface MetricasCorridaInput {
+  sessao: number;
+  distancia_km: string;
+  ritmo_medio_seg_km: number;
+  fc_media?: number | null;
+}
+
+
+// Criar métricas de corrida (POST /api/metricas-corrida/)
+export async function createMetricasCorrida(
+  accessToken: string,
+  data: MetricasCorridaInput
+) {
+  return apiFetch<MetricasCorrida>("/api/metricas-corrida/", {
+    method: "POST",
+    authToken: accessToken,
+    body: JSON.stringify(data),
+  });
+}
+
+// Buscar por sessão (GET /api/metricas-corrida/:id/) - id = sessão
+export async function getMetricasCorridaBySessao(
+  accessToken: string,
+  sessaoId: number
+) {
+  return apiFetch<MetricasCorrida>(`/api/metricas-corrida/${sessaoId}/`, {
+    method: "GET",
+    authToken: accessToken,
+  });
+}
+
+// Atualizar métricas de corrida (PUT /api/metricas-corrida/:id/)
+export async function updateMetricasCorrida(
+  accessToken: string,
+  sessaoId: number,
+  data: MetricasCorridaInput
+) {
+  return apiFetch<MetricasCorrida>(`/api/metricas-corrida/${sessaoId}/`, {
+    method: "PUT",
+    authToken: accessToken,
+    body: JSON.stringify(data),
+  });
+}
+
+// Remover métricas de corrida (DELETE /api/metricas-corrida/:id/)
+export async function deleteMetricasCorrida(
+  accessToken: string,
+  sessaoId: number
+) {
+  return apiFetch<{ detail?: string }>(`/api/metricas-corrida/${sessaoId}/`, {
+    method: "DELETE",
+    authToken: accessToken,
+  });
+}
+// Listar TODAS as métricas de corrida (GET /api/metricas-corrida/)
+export async function getMetricasCorridaAll(
+  accessToken: string
+) {
+  return apiFetch<MetricasCorrida[]>("/api/metricas-corrida/", {
+    method: "GET",
+    authToken: accessToken,
+  });
+}
+
+
+
+// ==========================================
+// MÉTRICAS DE CICLISMO
+// ==========================================
+
+export interface MetricasCiclismo {
+  sessao: number;
+  distancia_km: string;
+  velocidade_media_kmh: string;
+  fc_media: number | null;
+}
+
+export interface MetricasCiclismoInput {
+  sessao: number;
+  distancia_km: string;
+  velocidade_media_kmh: string;
+  fc_media?: number | null;
+}
+
+export async function createMetricasCiclismo(
+  accessToken: string,
+  data: MetricasCiclismoInput
+) {
+  return apiFetch<MetricasCiclismo>("/api/metricas-ciclismo/", {
+    method: "POST",
+    authToken: accessToken,
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getMetricasCiclismoBySessao(
+  accessToken: string,
+  sessaoId: number
+) {
+  return apiFetch<MetricasCiclismo>(`/api/metricas-ciclismo/${sessaoId}/`, {
+    method: "GET",
+    authToken: accessToken,
+  });
+}
+
+export async function updateMetricasCiclismo(
+  accessToken: string,
+  sessaoId: number,
+  data: MetricasCiclismoInput
+) {
+  return apiFetch<MetricasCiclismo>(`/api/metricas-ciclismo/${sessaoId}/`, {
+    method: "PUT",
+    authToken: accessToken,
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteMetricasCiclismo(
+  accessToken: string,
+  sessaoId: number
+) {
+  return apiFetch<{ detail?: string }>(`/api/metricas-ciclismo/${sessaoId}/`, {
+    method: "DELETE",
+    authToken: accessToken,
+  });
+}
+// Listar TODAS as métricas de ciclismo (GET /api/metricas-ciclismo/)
+export async function getMetricasCiclismoAll(
+  accessToken: string
+) {
+  return apiFetch<MetricasCiclismo[]>(
+    "/api/metricas-ciclismo/",
+    {
+      method: "GET",
+      authToken: accessToken,
+    }
+  );
+}
+
+
+
+// ==========================================
+// SÉRIES DE MUSCULAÇÃO
+// ==========================================
+
+export interface SerieMusculacaoApi {
+  id: number;
+  sessao: number;
+  exercicio: number;
+  ordem_serie: number;
+  repeticoes: number | null;
+  carga_kg: string | null;
+}
+
+export interface SerieMusculacaoInput {
+  sessao: number;
+  exercicio: number;
+  ordem_serie?: number | null;     // se não enviar, o backend calcula
+  repeticoes?: number | null;
+  carga_kg?: string | null;
+}
+
+// Criar série (POST /api/series-musculacao/)
+export async function createSerieMusculacao(
+  accessToken: string,
+  data: SerieMusculacaoInput
+) {
+  return apiFetch<SerieMusculacaoApi>("/api/series-musculacao/", {
+    method: "POST",
+    authToken: accessToken,
+    body: JSON.stringify(data),
+  });
+}
+
+// Listar séries por sessão (GET /api/series-musculacao/?sessao_id=X)
+export async function getSeriesMusculacaoBySessao(
+  accessToken: string,
+  sessaoId: number
+) {
+  return apiFetch<SerieMusculacaoApi[]>(
+    `/api/series-musculacao/?sessao_id=${sessaoId}`,
+    {
+      method: "GET",
+      authToken: accessToken,
+    }
+  );
+}
+
+// Deletar série (DELETE /api/series-musculacao/:id/)
+export async function deleteSerieMusculacao(
+  accessToken: string,
+  serieId: number
+) {
+  return apiFetch<{ detail?: string }>(`/api/series-musculacao/${serieId}/`, {
+    method: "DELETE",
+    authToken: accessToken,
+  });
+}
+// Atualizar série (PUT /api/series-musculacao/:id/)
+export async function updateSerieMusculacao(
+  accessToken: string,
+  serieId: number,
+  data: SerieMusculacaoInput
+) {
+  return apiFetch<SerieMusculacaoApi>(`/api/series-musculacao/${serieId}/`, {
+    method: "PUT",
+    authToken: accessToken,
+    body: JSON.stringify(data),
+  });
+}
+
+// ==========================================
+// MARCAÇÕES DE META DE HÁBITO
+// ==========================================
+
+export interface MarcacaoHabito {
+  id: number;
+  meta: number;
+  data: string;           // "YYYY-MM-DD"
+  concluido: boolean;
+  sessao: number | null;
+}
+
+export interface MarcacaoHabitoInput {
+  meta: number;
+  data: string;
+  concluido: boolean;
+  sessao: number | null;
+}
+
+// GET /api/marcacoes-habito/?meta_id=ID
+export async function getMarcacoesHabitoByMeta(
+  accessToken: string,
+  metaId: number
+) {
+  return apiFetch<MarcacaoHabito[]>(`/api/marcacoes-habito/?meta_id=${metaId}`, {
+    method: "GET",
+    authToken: accessToken,
+  });
+}
+
+// POST /api/marcacoes-habito/
+export async function createMarcacaoHabito(
+  accessToken: string,
+  body: MarcacaoHabitoInput
+) {
+  return apiFetch<MarcacaoHabito>("/api/marcacoes-habito/", {
+    method: "POST",
+    authToken: accessToken,
+    body: JSON.stringify(body),
+  });
+}
+
+// PATCH /api/marcacoes-habito/:id/
+export async function updateMarcacaoHabito(
+  accessToken: string,
+  id: number,
+  body: Partial<MarcacaoHabitoInput>
+) {
+  return apiFetch<MarcacaoHabito>(`/api/marcacoes-habito/${id}/`, {
+    method: "PATCH",
+    authToken: accessToken,
+    body: JSON.stringify(body),
+  });
+}
+
+// DELETE /api/marcacoes-habito/:id/
+export async function deleteMarcacaoHabito(
+  accessToken: string,
+  id: number
+) {
+  return apiFetch<void>(`/api/marcacoes-habito/${id}/`, {
+    method: "DELETE",
     authToken: accessToken,
   });
 }

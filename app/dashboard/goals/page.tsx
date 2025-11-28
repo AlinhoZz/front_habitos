@@ -11,6 +11,10 @@ import {
   deleteMetaHabito,
   MetaHabito,
   MetaHabitoInput,
+  MarcacaoHabito,
+  getMarcacoesHabitoByMeta,
+  createMarcacaoHabito,
+  updateMarcacaoHabito,
 } from "@/lib/api";
 import {
   Target,
@@ -78,6 +82,24 @@ export default function GoalsPage() {
     text: string;
   } | null>(null);
 
+  // Calendário / marcações de hábito
+  const [metaDoCalendario, setMetaDoCalendario] = useState<MetaHabito | null>(null);
+  const [marcacoes, setMarcacoes] = useState<MarcacaoHabito[]>([]);
+  const [loadingMarcacoes, setLoadingMarcacoes] = useState(false);
+  const [savingMarcacao, setSavingMarcacao] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const hoje = new Date();
+    return new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  });
+
+  const marcacoesPorData = React.useMemo(() => {
+    const map: Record<string, MarcacaoHabito> = {};
+    marcacoes.forEach((m) => {
+      map[m.data] = m;
+    });
+    return map;
+  }, [marcacoes]);
+
   const showFeedback = (type: "success" | "error", text: string) => {
     setFeedback({ type, text });
     setTimeout(() => setFeedback(null), 5000);
@@ -86,16 +108,17 @@ export default function GoalsPage() {
   const hasPeloMenosUmTarget = (data: MetaHabitoInput) => {
     return Boolean(
       data.frequencia_semana ||
-      data.distancia_meta_km ||
-      data.duracao_meta_min ||
-      data.sessoes_meta
+        data.distancia_meta_km ||
+        data.duracao_meta_min ||
+        data.sessoes_meta
     );
   };
 
   const loadMetas = async () => {
     setLoading(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
       if (!token) return;
 
       const [ativas, inativas] = await Promise.all([
@@ -209,8 +232,7 @@ export default function GoalsPage() {
       titulo: meta.titulo,
       modalidade: meta.modalidade,
       data_inicio:
-        meta.data_inicio ??
-        new Date().toISOString().split("T")[0],
+        meta.data_inicio ?? new Date().toISOString().split("T")[0],
       data_fim: meta.data_fim ?? null,
       frequencia_semana:
         meta.frequencia_semana !== undefined ? meta.frequencia_semana : null,
@@ -337,6 +359,77 @@ export default function GoalsPage() {
     }
   };
 
+  // --------- CALENDÁRIO / MARCAÇÕES ---------
+
+  const abrirCalendarioDaMeta = async (meta: MetaHabito) => {
+    setMetaDoCalendario(meta);
+
+    // Se tiver data de início, centraliza o mês nela
+    if (meta.data_inicio) {
+      const base = new Date(meta.data_inicio);
+      if (!Number.isNaN(base.getTime())) {
+        setCurrentMonth(new Date(base.getFullYear(), base.getMonth(), 1));
+      }
+    }
+
+    setLoadingMarcacoes(true);
+    try {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+      if (!token) throw new Error("Usuário não autenticado.");
+
+      const lista = await getMarcacoesHabitoByMeta(token, meta.id);
+      setMarcacoes(lista);
+    } catch (error: any) {
+      console.error(error);
+      showFeedback("error", error?.message || "Erro ao carregar marcações dessa meta.");
+    } finally {
+      setLoadingMarcacoes(false);
+    }
+  };
+
+  const fecharCalendario = () => {
+    setMetaDoCalendario(null);
+    setMarcacoes([]);
+  };
+
+  const toggleMarcacaoDia = async (dateISO: string) => {
+    if (!metaDoCalendario) return;
+
+    setSavingMarcacao(true);
+    try {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+      if (!token) throw new Error("Usuário não autenticado.");
+
+      const existente = marcacoesPorData[dateISO];
+
+      if (!existente) {
+        await createMarcacaoHabito(token, {
+          meta: metaDoCalendario.id,
+          data: dateISO,
+          concluido: true,
+          sessao: null,
+        });
+      } else {
+        await updateMarcacaoHabito(token, existente.id, {
+          concluido: !existente.concluido,
+        });
+      }
+
+      const listaAtualizada = await getMarcacoesHabitoByMeta(
+        token,
+        metaDoCalendario.id
+      );
+      setMarcacoes(listaAtualizada);
+    } catch (error: any) {
+      console.error(error);
+      showFeedback("error", error?.message || "Erro ao atualizar marcação.");
+    } finally {
+      setSavingMarcacao(false);
+    }
+  };
+
   // --------- RENDER ---------
 
   const listaAtual = tab === "ativas" ? metasAtivas : metasInativas;
@@ -379,10 +472,11 @@ export default function GoalsPage() {
           {/* FEEDBACK GLOBAL */}
           {feedback && (
             <div
-              className={`rounded-2xl p-4 border flex items-center gap-3 text-sm ${feedback.type === "success"
+              className={`rounded-2xl p-4 border flex items-center gap-3 text-sm ${
+                feedback.type === "success"
                   ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                   : "bg-red-50 border-red-200 text-red-800"
-                }`}
+              }`}
             >
               {feedback.type === "success" ? (
                 <CheckCircle2 size={18} />
@@ -401,19 +495,21 @@ export default function GoalsPage() {
             <div className="bg-white border border-slate-200 rounded-full p-1 flex items-center gap-1 text-[11px]">
               <button
                 onClick={() => setTab("ativas")}
-                className={`px-3 py-1 rounded-full font-semibold ${tab === "ativas"
+                className={`px-3 py-1 rounded-full font-semibold ${
+                  tab === "ativas"
                     ? "bg-slate-900 text-white"
                     : "text-slate-500 hover:text-slate-900"
-                  }`}
+                }`}
               >
                 Ativas
               </button>
               <button
                 onClick={() => setTab("inativas")}
-                className={`px-3 py-1 rounded-full font-semibold ${tab === "inativas"
+                className={`px-3 py-1 rounded-full font-semibold ${
+                  tab === "inativas"
                     ? "bg-slate-900 text-white"
                     : "text-slate-500 hover:text-slate-900"
-                  }`}
+                }`}
               >
                 Encerradas
               </button>
@@ -536,24 +632,35 @@ export default function GoalsPage() {
                   </div>
 
                   {/* Ações */}
-                  <div className="pt-3 border-t border-slate-50 flex items-center justify-between gap-2">
-                    <span
-                      className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full border ${meta.ativo
-                          ? "text-emerald-600 bg-emerald-50 border-emerald-100"
-                          : "text-slate-500 bg-slate-50 border-slate-100"
+                  <div className="pt-3 border-t border-slate-50 flex flex-col gap-2">
+                    <div>
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full border ${
+                          meta.ativo
+                            ? "text-emerald-600 bg-emerald-50 border-emerald-100"
+                            : "text-slate-500 bg-slate-50 border-slate-100"
                         }`}
-                    >
-                      <CheckCircle2 size={11} />
-                      {meta.ativo ? "Meta ativa" : "Meta encerrada"}
-                    </span>
+                      >
+                        <CheckCircle2 size={11} />
+                        {meta.ativo ? "Meta ativa" : "Meta encerrada"}
+                      </span>
+                    </div>
 
-                    <div className="flex items-center gap-2 text-[11px]">
+                    <div className="flex flex-wrap gap-2 text-[11px] justify-end">
                       <button
                         onClick={() => abrirEditModal(meta)}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                       >
                         <Pencil size={11} />
                         Editar
+                      </button>
+
+                      <button
+                        onClick={() => abrirCalendarioDaMeta(meta)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+                      >
+                        <Calendar size={11} />
+                        Progresso
                       </button>
 
                       {meta.ativo ? (
@@ -591,7 +698,6 @@ export default function GoalsPage() {
                           </button>
                         </>
                       )}
-
                     </div>
                   </div>
                 </div>
@@ -603,7 +709,7 @@ export default function GoalsPage() {
         {/* ========== MODAL CRIAR META ========== */}
         {isCreateModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl w-full max-w-lg max-height-[90vh] max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95">
+            <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95">
               <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -633,8 +739,7 @@ export default function GoalsPage() {
                       required
                       type="text"
                       placeholder="Ex: Correr 5km todo sábado"
-                      className="w-full px-4 py-2.5 rounded-xl border border-s
-late-200 focus:border-red-500 focus:ring-4 focus:ring-red-500/10 outline-none text-sm bg-slate-50/40 focus:bg-white transition-all"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-4 focus:ring-red-500/10 outline-none text-sm bg-slate-50/40 focus:bg-white transition-all"
                       value={formCreate.titulo}
                       onChange={(e) =>
                         setFormCreate({ ...formCreate, titulo: e.target.value })
@@ -1085,7 +1190,151 @@ late-200 focus:border-red-500 focus:ring-4 focus:ring-red-500/10 outline-none te
             </div>
           </div>
         )}
+
+        {/* ========== MODAL CALENDÁRIO META ========== */}
+        {metaDoCalendario && (
+          <div className="fixed inset-0 z-[75] flex justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl w-full max-w-xl my-8 shadow-2xl">
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <Calendar className="text-red-600" size={18} />
+                    Calendário da meta
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {metaDoCalendario.titulo}
+                  </p>
+                </div>
+                <button
+                  onClick={fecharCalendario}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X size={18} className="text-slate-500" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    onClick={() =>
+                      setCurrentMonth((prev) =>
+                        new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
+                      )
+                    }
+                    className="px-2 py-1 rounded-lg text-xs text-slate-600 hover:bg-slate-100"
+                  >
+                    &larr; Mês anterior
+                  </button>
+                  <div className="text-sm font-semibold text-slate-900">
+                    {currentMonth.toLocaleDateString("pt-BR", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </div>
+                  <button
+                    onClick={() =>
+                      setCurrentMonth((prev) =>
+                        new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
+                      )
+                    }
+                    className="px-2 py-1 rounded-lg text-xs text-slate-600 hover:bg-slate-100"
+                  >
+                    Próximo mês &rarr;
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-7 text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">
+                  <span>Dom</span>
+                  <span>Seg</span>
+                  <span>Ter</span>
+                  <span>Qua</span>
+                  <span>Qui</span>
+                  <span>Sex</span>
+                  <span>Sáb</span>
+                </div>
+
+                {loadingMarcacoes ? (
+                  <div className="py-10 text-center text-sm text-slate-500">
+                    Carregando marcações...
+                  </div>
+                ) : (
+                  <CalendarGrid
+                    currentMonth={currentMonth}
+                    marcacoesPorData={marcacoesPorData}
+                    onToggleDia={toggleMarcacaoDia}
+                    saving={savingMarcacao}
+                  />
+                )}
+
+                <p className="text-[11px] text-slate-400 mt-3">
+                  Toque em um dia para marcar ou desmarcar a conclusão da meta.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
+  );
+}
+
+/* ---------- COMPONENTE DE GRID DO CALENDÁRIO ---------- */
+
+type CalendarGridProps = {
+  currentMonth: Date;
+  marcacoesPorData: Record<string, MarcacaoHabito>;
+  onToggleDia: (dateISO: string) => void;
+  saving: boolean;
+};
+
+function CalendarGrid({
+  currentMonth,
+  marcacoesPorData,
+  onToggleDia,
+  saving,
+}: CalendarGridProps) {
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const firstWeekday = new Date(year, month, 1).getDay(); // 0 = domingo
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstWeekday; i++) {
+    cells.push(null);
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push(day);
+  }
+
+  return (
+    <div className="grid grid-cols-7 gap-1 text-xs">
+      {cells.map((day, idx) => {
+        if (day === null) {
+          return <div key={`empty-${idx}`} />;
+        }
+
+        const date = new Date(year, month, day);
+        const iso = date.toISOString().split("T")[0];
+        const marcacao = marcacoesPorData[iso];
+        const concluido = !!marcacao?.concluido;
+
+        return (
+          <button
+            key={iso}
+            type="button"
+            disabled={saving}
+            onClick={() => onToggleDia(iso)}
+            className={`aspect-square flex flex-col items-center justify-center rounded-xl border text-[11px] ${
+              concluido
+                ? "bg-emerald-500 text-white border-emerald-500"
+                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+            }`}
+          >
+            <span className="font-semibold">{day}</span>
+            {concluido && <span className="text-[9px] mt-0.5">ok</span>}
+          </button>
+        );
+      })}
+    </div>
   );
 }

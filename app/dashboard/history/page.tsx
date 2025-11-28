@@ -19,7 +19,9 @@ import {
   Trash2,
   AlertTriangle,
   X,
+  ArrowRight,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type ModalidadeFiltro = "todos" | "corrida" | "ciclismo" | "musculacao";
 type PeriodoFiltro = 7 | 30 | 90;
@@ -30,6 +32,8 @@ interface FeedbackMessage {
 }
 
 export default function HistoryPage() {
+  const router = useRouter();
+
   const [sessions, setSessions] = useState<SessaoAtividade[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,6 +49,12 @@ export default function HistoryPage() {
   const [sessaoSelecionada, setSessaoSelecionada] =
     useState<SessaoAtividade | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Estado do modal de exclusão bloqueada (dados associados)
+  const [deleteBlockedModalOpen, setDeleteBlockedModalOpen] = useState(false);
+  const [deleteBlockedDetail, setDeleteBlockedDetail] = useState<string | null>(
+    null
+  );
 
   const showMessage = (type: FeedbackMessage["type"], text: string) => {
     setMessage({ type, text });
@@ -114,7 +124,7 @@ export default function HistoryPage() {
         params.set("modalidade", modalidadeFiltro);
       }
 
-      // Filtro de datas (início_em_inicio / inicio_em_fim)
+      // Filtro de datas (inicio_em_inicio / inicio_em_fim)
       params.set("inicio_em_inicio", dateRange.inicio);
       params.set("inicio_em_fim", dateRange.fim);
 
@@ -175,11 +185,23 @@ export default function HistoryPage() {
       handleCloseDeleteModal();
     } catch (err: any) {
       console.error(err);
-      showMessage(
-        "error",
+
+      const msg =
         err?.message ||
-          "Não foi possível excluir a sessão. Verifique se existem dados associados (métricas, séries ou marcações de hábito)."
-      );
+        "Não foi possível excluir a sessão. Verifique se existem dados associados (métricas, séries ou marcações de hábito).";
+
+      // Se for o erro específico de dados associados, abre o modal dedicado
+      if (
+        msg.includes(
+          "Não é possível excluir a sessão pois existem dados associados"
+        )
+      ) {
+        setDeleteBlockedDetail(msg);
+        setDeleteBlockedModalOpen(true);
+      } else {
+        // Outros erros continuam indo para a mensagem global
+        showMessage("error", msg);
+      }
     } finally {
       setDeleting(false);
     }
@@ -337,7 +359,7 @@ export default function HistoryPage() {
                     key={sessao.id}
                     className="bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all p-5 flex flex-col gap-3"
                   >
-                    {/* Topo: modalidade + data/hora */}
+                    {/* Topo: modalidade + data/hora + ações */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
                         <div
@@ -359,13 +381,26 @@ export default function HistoryPage() {
                         </p>
                       </div>
 
-                      <button
-                        onClick={() => handleOpenDeleteModal(sessao)}
-                        className="p-2 rounded-full text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title="Excluir sessão"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            router.push(`/dashboard/history/${sessao.id}`)
+                          }
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+                        >
+                          Ver detalhes
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+
+                        <button
+                          onClick={() => handleOpenDeleteModal(sessao)}
+                          className="p-2 rounded-full text-slate-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          title="Excluir sessão"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Métricas */}
@@ -385,18 +420,20 @@ export default function HistoryPage() {
                           Calorias
                         </p>
                         <p className="font-semibold text-slate-900">
-                          {sessao.calorias != null ? `${sessao.calorias} kcal` : "—"}
+                          {sessao.calorias != null
+                            ? `${sessao.calorias} kcal`
+                            : "—"}
                         </p>
                       </div>
                       <div className="bg-slate-50 rounded-xl px-3 py-2">
-                        <p className="text-slate-500 mb-0.5">ID</p>
+                        <p className="text-slate-500 mb-0.5">Sessão</p>
                         <p className="font-semibold text-slate-900">
                           #{sessao.id}
                         </p>
                       </div>
                     </div>
 
-                    {/* Observação */}
+                    {/* Observação (apenas uma vez) */}
                     {sessao.observacoes && (
                       <p className="mt-2 text-xs text-slate-600 bg-slate-50 rounded-xl px-3 py-2 line-clamp-2">
                         {sessao.observacoes}
@@ -501,6 +538,73 @@ export default function HistoryPage() {
                       Excluir sessão
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE EXCLUSÃO BLOQUEADA (DADOS ASSOCIADOS) */}
+        {deleteBlockedModalOpen && (
+          <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-900">
+                    Não foi possível excluir a sessão
+                  </h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setDeleteBlockedModalOpen(false);
+                    setDeleteBlockedDetail(null);
+                  }}
+                  className="p-2 rounded-full hover:bg-slate-100 text-slate-400"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-3 text-sm">
+                <p className="text-slate-600">
+                  {deleteBlockedDetail ??
+                    "Existem métricas, séries de musculação ou marcações de hábito ligadas a esta sessão."}
+                </p>
+
+                <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 text-[11px] text-amber-800">
+                  Para excluir a sessão, primeiro remova:
+                  <ul className="list-disc ml-4 mt-1 space-y-0.5">
+                    <li>Métricas de corrida/ciclismo vinculadas</li>
+                    <li>Séries de musculação desta sessão</li>
+                    <li>Marcações de hábito associadas</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="px-6 pb-5 pt-3 flex flex-col sm:flex-row gap-3 sm:justify-end border-t border-slate-100 bg-slate-50/60 rounded-b-3xl">
+                {sessaoSelecionada && (
+                  <button
+                    onClick={() => {
+                      setDeleteBlockedModalOpen(false);
+                      setDeleteBlockedDetail(null);
+                      router.push(`/dashboard/history/${sessaoSelecionada.id}`);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+                  >
+                    Ver detalhes da sessão
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setDeleteBlockedModalOpen(false);
+                    setDeleteBlockedDetail(null);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 hover:bg-white transition-colors"
+                >
+                  Entendi
                 </button>
               </div>
             </div>
