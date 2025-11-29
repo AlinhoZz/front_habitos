@@ -64,11 +64,11 @@ export default function Sidebar({ isOpen, onClose, onLogout }: SidebarProps) {
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between h-16 px-5 border-b border-slate-800/60">
-            <div className="flex items-center gap-3">
+            <div className="flex-1 flex items-center justify-center px-3">
               <img
-                src="/placeholder-logo-white.png"
+                src="/icons/logosidebar.svg"
                 alt="+Fôlego Logo"
-                className="h-8 w-auto object-contain transition-transform duration-200 hover:scale-105"
+                className="h-12 lg:h-14 w-auto object-contain transition-transform duration-200 hover:scale-105"
               />
             </div>
 

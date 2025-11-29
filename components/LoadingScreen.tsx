@@ -13,13 +13,13 @@ export default function LoadingScreen({
 }: LoadingScreenProps) {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950 text-white">
-      <div className="flex flex-col items-center gap-6 px-6">
+      <div className="flex flex-col items-center gap-1 px-6">
         {/* Logo */}
-        <div className="flex items-center gap-3">
+        <div className="w-full flex justify-center">
           <img
-            src="/placeholder-logo-white.png"
+            src="/icons/loading.gif"
             alt="+Fôlego"
-            className="h-10 w-auto object-contain"
+            className="h-40 w-auto object-contain mx-auto logo-pulse"
           />
         </div>
 
@@ -41,7 +41,7 @@ export default function LoadingScreen({
 
           {/* Barra de progresso fake */}
           <div className="mt-5 w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full w-1/3 bg-red-500 rounded-full animate-[loading-bar_1.4s_ease-in-out_infinite]" />
+            <div className="h-full w-1/3 bg-red-500 rounded-full loading-bar" />
           </div>
 
           {/* Mensagens “humanas” */}
@@ -53,8 +53,8 @@ export default function LoadingScreen({
         </div>
       </div>
 
-      {/* Tailwind keyframe custom via style inline (funciona direto) */}
-      <style jsx>{`
+      {/* Animações globais para barra e logo */}
+      <style jsx global>{`
         @keyframes loading-bar {
           0% {
             transform: translateX(-120%);
@@ -65,6 +65,26 @@ export default function LoadingScreen({
           100% {
             transform: translateX(120%);
           }
+        }
+
+        .loading-bar {
+          animation: loading-bar 1.4s ease-in-out infinite;
+        }
+
+        @keyframes logo-pulse {
+          0%,
+          100% {
+            filter: drop-shadow(0 0 0px rgba(248, 113, 113, 0.2));
+            opacity: 0.8;
+          }
+          50% {
+            filter: drop-shadow(0 0 14px rgba(248, 113, 113, 0.9));
+            opacity: 1;
+          }
+        }
+
+        .logo-pulse {
+          animation: logo-pulse 1.4s ease-in-out infinite;
         }
       `}</style>
     </div>

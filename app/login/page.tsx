@@ -12,9 +12,8 @@ export default function LoginPage() {
   const [formData, setFormData] = useState({ email: "", senha: "" });
   const [showPassword, setShowPassword] = useState(false);
 
-  // 👇 agora temos dois estados:
-  const [isSubmitting, setIsSubmitting] = useState(false);      // spinner no botão
-  const [showFullLoading, setShowFullLoading] = useState(false); // tela inteira de loading
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showFullLoading, setShowFullLoading] = useState(false);
 
   const [error, setError] = useState("");
 
@@ -73,12 +72,11 @@ export default function LoginPage() {
             alt="Background Login"
           />
         </div>
-        <div className="relative z-10 p-12 text-white max-w-lg">
-          <img src="/placeholder-logo-white.png" alt="Logo" className="h-12 mb-8" />
-          <h2 className="text-4xl font-bold mb-6">
+        <div className="relative z-10 p-8 text-white max-w-lg flex flex-col justify-center items-start h-full gap-2">
+          <h2 className="text-3xl md:text-4xl font-bold">
             Bem-vindo de volta, atleta.
           </h2>
-          <p className="text-lg text-slate-300 leading-relaxed">
+          <p className="text-md text-slate-300 leading-tight">
             "A única maneira de definir seus limites é indo além deles. Continue sua jornada hoje."
           </p>
         </div>
