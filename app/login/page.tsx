@@ -73,6 +73,7 @@ export default function LoginPage() {
           />
         </div>
         <div className="relative z-10 p-8 text-white max-w-lg flex flex-col justify-center items-start h-full gap-2">
+
           <h2 className="text-3xl md:text-4xl font-bold">
             Bem-vindo de volta, atleta.
           </h2>
