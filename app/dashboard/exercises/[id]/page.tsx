@@ -6,6 +6,7 @@ import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { getExercicioById, Exercicio } from '@/lib/api';
 import { ArrowLeft, Dumbbell, Info, PlayCircle, Target } from 'lucide-react';
+import { AiCoach } from '@/components/AiCoach';
 
 export default function ExerciseDetailsPage() {
   const params = useParams();
@@ -44,6 +45,26 @@ export default function ExerciseDetailsPage() {
   }
 
   if (!exercise) return null;
+
+  const aiContext = `
+    Exercício: ${exercise.nome}
+    Grupo Muscular: ${exercise.grupo_muscular || 'Geral'}
+    Equipamento: ${exercise.equipamento || 'Peso do corpo'}
+    
+    Instruções Técnicas da Ficha:
+    - Mantenha a postura neutra, abdômen levemente contraído.
+    - Evite usar impulso excessivo.
+    - Inspire na descida, expire na subida.
+    
+    Dicas passadas ao aluno:
+    - Comece com carga leve.
+    - Controle a volta do movimento.
+    - Foque em sentir o músculo.
+    
+    Cuidados passados ao aluno:
+    - Evite dores agudas.
+    - Ajuste o banco.
+  `;
 
   return (
     <DashboardLayout>
@@ -168,6 +189,14 @@ export default function ExerciseDetailsPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="mt-8 pt-6 border-t border-slate-100">
+                <AiCoach 
+                  exerciseName={exercise.nome}
+                  exerciseContext={aiContext}
+                />
+              </div>
+
             </div>
           </div>
 
