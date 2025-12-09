@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, User, Wind, Trash2, AlertTriangle, MessageSquarePlus } from 'lucide-react';
+import { Send, User, Wind, Trash2, AlertTriangle, MessageSquarePlus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface Message {
@@ -30,12 +30,18 @@ export function AiCoach({ exerciseName, exerciseContext }: AiCoachProps) {
   const [showClearModal, setShowClearModal] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const wasLoadingRef = useRef(false);
 
   const STORAGE_KEY = `chat_history_${exerciseName.replace(/\s+/g, '_')}`;
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   };
 
   useEffect(() => {
@@ -53,16 +59,17 @@ export function AiCoach({ exerciseName, exerciseContext }: AiCoachProps) {
     if (messages.length > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     }
-    scrollToBottom();
+    setTimeout(() => scrollToBottom(), 100);
   }, [messages, STORAGE_KEY]);
 
   useEffect(() => {
-    if (!isLoading) {
-      // Um pequeno timeout garante que o input já está "habilitado" antes de focar
+    if (!isLoading && wasLoadingRef.current) {
       setTimeout(() => {
         inputRef.current?.focus();
+        scrollToBottom();
       }, 50);
     }
+    wasLoadingRef.current = isLoading;
   }, [isLoading]);
 
   const confirmClearChat = () => {
@@ -117,7 +124,7 @@ export function AiCoach({ exerciseName, exerciseContext }: AiCoachProps) {
         })
       });
 
-     if (!res.ok) {
+      if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         if (res.status === 429) {
              throw new Error("Calma, atleta! Muitas mensagens seguidas. Respire 1 minuto.");
@@ -150,11 +157,10 @@ export function AiCoach({ exerciseName, exerciseContext }: AiCoachProps) {
   return (
     <div className="mt-6 w-full lg:max-w-3xl mx-auto px-2 sm:px-0 pb-4 relative">
       
-      {/* Header - VOLTOU PARA O TEMA RED/ORANGE */}
+      {/* Header */}
       <div className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-t-2xl sm:rounded-t-3xl p-3 sm:p-4 flex items-center justify-between shadow-sm z-10 relative">
         <div className="flex items-center gap-3">
           <div className="relative">
-            {/* Gradiente Vermelho/Laranja Original */}
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-red-200">
               <Wind className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
@@ -181,11 +187,14 @@ export function AiCoach({ exerciseName, exerciseContext }: AiCoachProps) {
         )}
       </div>
 
-      {/* Área do Chat */}
-      <div className="h-[400px] sm:h-[500px] bg-slate-50 border-x border-slate-200 overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6 scroll-smooth touch-pan-y">
+      {/* Área do Chat - CORREÇÃO DE LAYOUT AQUI (flex flex-col) */}
+      <div 
+        ref={chatContainerRef}
+        className="h-[400px] sm:h-[500px] bg-slate-50 border-x border-slate-200 overflow-y-auto p-3 sm:p-5 space-y-4 sm:space-y-6 scroll-smooth touch-pan-y flex flex-col"
+      >
         
         {messages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-90 space-y-4 animate-in fade-in duration-500">
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 opacity-90 space-y-4 animate-in fade-in duration-500">
             <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white border border-slate-100 shadow-sm rounded-full flex items-center justify-center">
               <Wind className="w-6 h-6 sm:w-8 sm:h-8 text-red-400" />
             </div>
@@ -234,7 +243,6 @@ export function AiCoach({ exerciseName, exerciseContext }: AiCoachProps) {
                 >
                   <ReactMarkdown
                     components={{
-                      // ✅ TEXTO EM NEGRITO AGORA É PRETO (slate-900) ou BRANCO (se for usuário)
                       strong: ({node, ...props}) => <span className={`font-bold ${isUser ? 'text-white' : 'text-slate-900'}`} {...props} />,
                       p: ({node, ...props}) => <p className="mb-1 last:mb-0" {...props} />,
                       ul: ({node, ...props}) => <ul className="list-disc pl-4 mb-2 space-y-1" {...props} />,
@@ -253,7 +261,7 @@ export function AiCoach({ exerciseName, exerciseContext }: AiCoachProps) {
           );
         })}
 
-        {/* Animação de Carregamento (Vermelha O2 Original) */}
+        {/* Animação de Carregamento */}
         {isLoading && (
           <div className="flex justify-start animate-in fade-in duration-300 my-4">
              <div className="flex items-center gap-3 px-2">
@@ -273,8 +281,6 @@ export function AiCoach({ exerciseName, exerciseContext }: AiCoachProps) {
              </div>
           </div>
         )}
-        
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Footer Input */}
