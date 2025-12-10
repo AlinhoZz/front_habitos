@@ -42,7 +42,7 @@ interface HabitoComStreak extends MetaHabito {
 }
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "maisfolegoapp.com.br";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const STRAVA_CLIENT_ID = process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
 const STRAVA_REDIRECT_URI = process.env.NEXT_PUBLIC_STRAVA_REDIRECT_URI;
