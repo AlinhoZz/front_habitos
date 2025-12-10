@@ -1,26 +1,26 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import DashboardLayout from '@/components/DashboardLayout';
-import { 
-  getDashboardResumo, 
-  getMetasAtivas, 
-  getMetaStreaks, 
-  MetaHabito 
-} from '@/lib/api';
-import { 
-  Activity, 
-  Flame, 
-  Timer, 
-  Bike, 
-  PersonStanding, 
-  Dumbbell, 
+import React, { useEffect, useState } from "react";
+import DashboardLayout from "@/components/DashboardLayout";
+import {
+  getDashboardResumo,
+  getMetasAtivas,
+  getMetaStreaks,
+  MetaHabito,
+} from "@/lib/api";
+import {
+  Activity,
+  Flame,
+  Timer,
+  Bike,
+  PersonStanding,
+  Dumbbell,
   TrendingUp,
   AlertCircle,
   Trophy,
   Target,
-  Plus
-} from 'lucide-react';
+  Plus,
+} from "lucide-react";
 
 // Tipagem do Dashboard Geral
 interface DashboardData {
@@ -41,26 +41,50 @@ interface HabitoComStreak extends MetaHabito {
   streak_maximo: number;
 }
 
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+const STRAVA_CLIENT_ID = process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID;
+const STRAVA_REDIRECT_URI = process.env.NEXT_PUBLIC_STRAVA_REDIRECT_URI;
+
+const STRAVA_AUTH_URL =
+  STRAVA_CLIENT_ID && STRAVA_REDIRECT_URI
+    ? `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(
+        STRAVA_REDIRECT_URI
+      )}&approval_prompt=auto&scope=read,activity:read_all`
+    : null;
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [habits, setHabits] = useState<HabitoComStreak[]>([]);
   const [loading, setLoading] = useState(true);
-  const [periodo, setPeriodo] = useState(30); 
+  const [periodo, setPeriodo] = useState(30);
+
+  // Estado para Strava
+  const [stravaLoading, setStravaLoading] = useState(false);
+  const [stravaMessage, setStravaMessage] = useState<string | null>(null);
+  const [stravaError, setStravaError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadAllData() {
       setLoading(true);
       try {
-        const token = localStorage.getItem('accessToken');
+        const token = typeof window !== "undefined"
+          ? localStorage.getItem("accessToken")
+          : null;
+
         if (!token) return;
-        
-        // 1. Carrega o Resumo Geral (Cards de cima)
-        const dashboardResult = await getDashboardResumo(token, periodo) as unknown as DashboardData;
+
+        // 1. Resumo Geral
+        const dashboardResult = (await getDashboardResumo(
+          token,
+          periodo
+        )) as unknown as DashboardData;
         setData(dashboardResult);
 
-        // 2. Carrega as Metas e seus Streaks
+        // 2. Metas + Streaks
         const metasAtivas = await getMetasAtivas(token);
-        
+
         const habitsWithData = await Promise.all(
           metasAtivas.map(async (meta) => {
             try {
@@ -71,7 +95,7 @@ export default function DashboardPage() {
             }
           })
         );
-        
+
         setHabits(habitsWithData);
       } catch (error) {
         console.error("Erro ao carregar dashboard", error);
@@ -87,6 +111,50 @@ export default function DashboardPage() {
     const m = Math.floor((seconds % 3600) / 60);
     if (h > 0) return `${h}h ${m}m`;
     return `${m} min`;
+  };
+
+  const handleSyncStrava = async () => {
+    setStravaError(null);
+    setStravaMessage(null);
+
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("accessToken")
+        : null;
+
+    if (!token) {
+      setStravaError("Você precisa estar logado para sincronizar com o Strava.");
+      return;
+    }
+
+    setStravaLoading(true);
+    try {
+      const resp = await fetch(`${API_BASE_URL}/integracoes/strava/sync/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await resp.json().catch(() => null);
+
+      if (!resp.ok) {
+        setStravaError(
+          data?.detail ||
+            "Erro ao sincronizar com o Strava. Verifique se sua conta já está conectada."
+        );
+      } else {
+        setStravaMessage(
+          data?.detail || "Atividades do Strava sincronizadas com sucesso!"
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      setStravaError("Erro de conexão com o servidor ao sincronizar com o Strava.");
+    } finally {
+      setStravaLoading(false);
+    }
   };
 
   if (loading) {
@@ -120,7 +188,8 @@ export default function DashboardPage() {
               Visão Geral
             </h2>
             <p className="text-sm text-red-50/90 max-w-md">
-              Acompanhe sua evolução nos últimos {data.periodo_dias} dias e veja como seus hábitos estão construindo consistência.
+              Acompanhe sua evolução nos últimos {data.periodo_dias} dias e veja
+              como seus hábitos estão construindo consistência.
             </p>
           </div>
 
@@ -134,9 +203,9 @@ export default function DashboardPage() {
                   key={d}
                   onClick={() => setPeriodo(d)}
                   className={`px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-all ${
-                    periodo === d 
-                      ? 'bg-white text-red-600 shadow-md'
-                      : 'text-red-50/80 hover:bg-white/10'
+                    periodo === d
+                      ? "bg-white text-red-600 shadow-md"
+                      : "text-red-50/80 hover:bg-white/10"
                   }`}
                 >
                   {d} dias
@@ -156,7 +225,9 @@ export default function DashboardPage() {
               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                 Total de Treinos
               </p>
-              <h3 className="text-3xl font-bold text-slate-900">{data.total_sessoes}</h3>
+              <h3 className="text-3xl font-bold text-slate-900">
+                {data.total_sessoes}
+              </h3>
               <p className="text-xs text-slate-400 mt-1">
                 Sessões registradas no período
               </p>
@@ -189,7 +260,7 @@ export default function DashboardPage() {
                 Calorias Queimadas
               </p>
               <h3 className="text-3xl font-bold text-slate-900">
-                {data.calorias_totais}{' '}
+                {data.calorias_totais}{" "}
                 <span className="text-sm font-normal text-slate-400">kcal</span>
               </h3>
               <p className="text-xs text-slate-400 mt-1">
@@ -216,7 +287,7 @@ export default function DashboardPage() {
                   className="bg-slate-900 text-white p-5 rounded-2xl shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-transform"
                 >
                   <div className="absolute top-0 right-0 bg-white/5 w-24 h-24 rounded-bl-full -mr-4 -mt-4" />
-                  
+
                   <div className="relative z-10">
                     <div className="flex justify-between items-start mb-3">
                       <h4
@@ -228,17 +299,17 @@ export default function DashboardPage() {
                       <div
                         className={`p-1.5 rounded-lg ${
                           habit.streak_atual > 0
-                            ? 'bg-orange-500 text-white'
-                            : 'bg-slate-700 text-slate-400'
+                            ? "bg-orange-500 text-white"
+                            : "bg-slate-700 text-slate-400"
                         }`}
                       >
                         <Flame
                           size={18}
-                          fill={habit.streak_atual > 0 ? 'currentColor' : 'none'}
+                          fill={habit.streak_atual > 0 ? "currentColor" : "none"}
                         />
                       </div>
                     </div>
-                    
+
                     <div className="flex items-end gap-1 mb-1">
                       <span className="text-3xl font-black">
                         {habit.streak_atual}
@@ -249,8 +320,8 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="flex items-center gap-1 text-xs text-slate-400 bg-slate-800/60 py-1 px-2 rounded-md w-fit">
-                      <Trophy size={12} className="text-yellow-400" /> 
-                      Recorde:{' '}
+                      <Trophy size={12} className="text-yellow-400" />
+                      Recorde:{" "}
                       <span className="text-white font-semibold">
                         {habit.streak_maximo}
                       </span>
@@ -268,7 +339,8 @@ export default function DashboardPage() {
                 Nenhum hábito monitorado
               </h4>
               <p className="text-slate-500 text-sm mb-4 max-w-xs">
-                Crie metas de constância para enxergar seu “foguinho” de disciplina aqui.
+                Crie metas de constância para enxergar seu “foguinho” de
+                disciplina aqui.
               </p>
               <a
                 href="/dashboard/goals"
@@ -297,7 +369,7 @@ export default function DashboardPage() {
                   </div>
                   <h4 className="font-semibold text-slate-800">Ciclismo</h4>
                 </div>
-                
+
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between items-end border-b border-slate-50 pb-2">
                     <span className="text-slate-500">Sessões</span>
@@ -308,14 +380,18 @@ export default function DashboardPage() {
                   <div className="flex justify-between items-end border-b border-slate-50 pb-2">
                     <span className="text-slate-500">Distância</span>
                     <span className="font-semibold text-lg text-slate-900">
-                      {Number(data.por_modalidade.ciclismo.distancia_total_km).toFixed(1)}{' '}
+                      {Number(
+                        data.por_modalidade.ciclismo.distancia_total_km
+                      ).toFixed(1)}{" "}
                       <small className="text-xs">km</small>
                     </span>
                   </div>
                   <div className="flex justify-between items-end">
                     <span className="text-slate-500">Vel. média</span>
                     <span className="font-semibold text-lg text-slate-900">
-                      {Number(data.por_modalidade.ciclismo.velocidade_media).toFixed(1)}{' '}
+                      {Number(
+                        data.por_modalidade.ciclismo.velocidade_media
+                      ).toFixed(1)}{" "}
                       <small className="text-xs">km/h</small>
                     </span>
                   </div>
@@ -333,7 +409,7 @@ export default function DashboardPage() {
                   </div>
                   <h4 className="font-semibold text-slate-800">Corrida</h4>
                 </div>
-                
+
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between items-end border-b border-slate-50 pb-2">
                     <span className="text-slate-500">Sessões</span>
@@ -344,16 +420,22 @@ export default function DashboardPage() {
                   <div className="flex justify-between items-end border-b border-slate-50 pb-2">
                     <span className="text-slate-500">Distância</span>
                     <span className="font-semibold text-lg text-slate-900">
-                      {Number(data.por_modalidade.corrida.distancia_total_km).toFixed(1)}{' '}
+                      {Number(
+                        data.por_modalidade.corrida.distancia_total_km
+                      ).toFixed(1)}{" "}
                       <small className="text-xs">km</small>
                     </span>
                   </div>
                   <div className="flex justify-between items-end">
                     <span className="text-slate-500">Pace médio</span>
                     <span className="font-semibold text-lg text-slate-900">
-                      {data.por_modalidade.corrida.ritmo_medio 
-                        ? `${Math.floor(data.por_modalidade.corrida.ritmo_medio / 60)}'${data.por_modalidade.corrida.ritmo_medio % 60}"`
-                        : '--'}{' '}
+                      {data.por_modalidade.corrida.ritmo_medio
+                        ? `${Math.floor(
+                            data.por_modalidade.corrida.ritmo_medio / 60
+                          )}'${
+                            data.por_modalidade.corrida.ritmo_medio % 60
+                          }"`
+                        : "--"}{" "}
                       <small className="text-xs">/km</small>
                     </span>
                   </div>
@@ -371,7 +453,7 @@ export default function DashboardPage() {
                   </div>
                   <h4 className="font-semibold text-slate-800">Musculação</h4>
                 </div>
-                
+
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between items-end border-b border-slate-50 pb-2">
                     <span className="text-slate-500">Sessões</span>
@@ -394,7 +476,74 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
 
+        {/* SEÇÃO 4: INTEGRAÇÃO COM STRAVA */}
+        <section className="space-y-4">
+          <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+            <Bike className="text-red-600" />
+            Integração com Strava
+          </h3>
+
+          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+            <div className="space-y-2 max-w-md">
+              <p className="text-sm text-slate-700 font-medium">
+                Traga seus treinos automaticamente do Strava
+              </p>
+              <p className="text-xs text-slate-500">
+                Conecte sua conta Strava para importar corridas, pedaladas e
+                outras atividades diretamente para o +Fôlego. Depois de conectado,
+                você pode sincronizar quando quiser.
+              </p>
+
+              {stravaMessage && (
+                <div className="mt-2 text-xs px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100">
+                  {stravaMessage}
+                </div>
+              )}
+
+              {stravaError && (
+                <div className="mt-2 text-xs px-3 py-2 rounded-lg bg-red-50 text-red-700 border border-red-100 flex items-start gap-1.5">
+                  <AlertCircle className="w-3 h-3 mt-[2px]" />
+                  <span>{stravaError}</span>
+                </div>
+              )}
+
+              {!STRAVA_AUTH_URL && (
+                <p className="mt-2 text-[11px] text-slate-400">
+                  Para habilitar a conexão com o Strava, configure{" "}
+                  <code className="bg-slate-100 px-1 rounded">
+                    NEXT_PUBLIC_STRAVA_CLIENT_ID
+                  </code>{" "}
+                  e{" "}
+                  <code className="bg-slate-100 px-1 rounded">
+                    NEXT_PUBLIC_STRAVA_REDIRECT_URI
+                  </code>{" "}
+                  no front.
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              {STRAVA_AUTH_URL && (
+                <a
+                  href={STRAVA_AUTH_URL}
+                  className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-sm"
+                >
+                  Conectar ao Strava
+                </a>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSyncStrava}
+                disabled={stravaLoading}
+                className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 bg-slate-50 hover:bg-white hover:border-slate-300 transition-colors disabled:opacity-70"
+              >
+                {stravaLoading ? "Sincronizando..." : "Sincronizar atividades"}
+              </button>
+            </div>
           </div>
         </section>
       </div>
