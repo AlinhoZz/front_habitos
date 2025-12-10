@@ -24,8 +24,7 @@ import {
 import { useRouter } from "next/navigation";
 
 type ModalidadeFiltro = "todos" | "corrida" | "ciclismo" | "musculacao";
-type PeriodoFiltro = 7 | 30 | 90;
-
+type PeriodoFiltro = 7 | 30 | 90 | "all";
 interface FeedbackMessage {
   type: "success" | "error";
   text: string;
@@ -98,6 +97,11 @@ export default function HistoryPage() {
 
   // Calcula intervalo de datas com base no período selecionado (7, 30, 90)
   const dateRange = useMemo(() => {
+    // Se for "all", não usamos range de datas
+    if (periodoFiltro === "all") {
+      return null;
+    }
+
     const hoje = new Date();
     const fim = hoje.toISOString().split("T")[0];
 
@@ -107,6 +111,7 @@ export default function HistoryPage() {
 
     return { inicio, fim };
   }, [periodoFiltro]);
+
 
   const loadSessions = useCallback(async () => {
     setLoading(true);
@@ -119,14 +124,16 @@ export default function HistoryPage() {
 
       const params = new URLSearchParams();
 
-      // Filtro de modalidade -> backend já sabe lidar com isso
       if (modalidadeFiltro !== "todos") {
         params.set("modalidade", modalidadeFiltro);
       }
 
-      // Filtro de datas (inicio_em_inicio / inicio_em_fim)
-      params.set("inicio_em_inicio", dateRange.inicio);
-      params.set("inicio_em_fim", dateRange.fim);
+      // Só manda intervalo se NÃO for "all"
+      if (dateRange) {
+        params.set("inicio_em_inicio", dateRange.inicio);
+        params.set("inicio_em_fim", dateRange.fim);
+      }
+
 
       const data = await getSessoesAtividade(token, params.toString());
       setSessions(data);
@@ -231,36 +238,44 @@ export default function HistoryPage() {
             <div className="flex flex-col items-start sm:items-end gap-2 text-xs">
               <span className="px-3 py-1 rounded-full bg-white/10 text-slate-100 border border-white/10 font-medium flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                {`De ${dateRange.inicio.split("-").reverse().join("/")} até ${
-                  dateRange.fim.split("-").reverse().join("/")
-                }`}
+                {dateRange ? `De ${dateRange.inicio.split("-").reverse().join("/")} até ${dateRange.fim.split("-").reverse().join("/")}` : "Todas as datas"}
               </span>
               <div className="flex bg-black/20 rounded-full p-1 shadow-sm border border-white/20">
                 {[7, 30, 90].map((d) => (
                   <button
                     key={d}
                     onClick={() => setPeriodoFiltro(d as PeriodoFiltro)}
-                    className={`px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-all ${
-                      periodoFiltro === d
+                    className={`px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-all ${periodoFiltro === d
                         ? "bg-white text-slate-900 shadow-md"
                         : "text-slate-100/80 hover:bg-white/10"
-                    }`}
+                      }`}
                   >
                     {d} dias
                   </button>
                 ))}
+
+                {/* Botão "Tudo" */}
+                <button
+                  onClick={() => setPeriodoFiltro("all")}
+                  className={`px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-all ${periodoFiltro === "all"
+                      ? "bg-white text-slate-900 shadow-md"
+                      : "text-slate-100/80 hover:bg-white/10"
+                    }`}
+                >
+                  Tudo
+                </button>
               </div>
+
             </div>
           </section>
 
           {/* MENSAGEM GLOBAL */}
           {message && (
             <div
-              className={`rounded-2xl px-4 py-3 flex items-center gap-3 text-sm border animate-in slide-in-from-top-2 ${
-                message.type === "success"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                  : "bg-red-50 text-red-700 border-red-100"
-              }`}
+              className={`rounded-2xl px-4 py-3 flex items-center gap-3 text-sm border animate-in slide-in-from-top-2 ${message.type === "success"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                : "bg-red-50 text-red-700 border-red-100"
+                }`}
             >
               {message.type === "success" ? (
                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
@@ -291,11 +306,10 @@ export default function HistoryPage() {
                   <button
                     key={item.value}
                     onClick={() => setModalidadeFiltro(item.value)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
-                      isActive
-                        ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                    }`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${isActive
+                      ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}
                   >
                     {item.value === "corrida" && (
                       <PersonStanding className="w-3 h-3" />

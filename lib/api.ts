@@ -700,3 +700,28 @@ export async function deleteMarcacaoHabito(
     authToken: accessToken,
   });
 }
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export async function conectarStrava(accessToken: string, code: string) {
+  const resp = await fetch(`${API_BASE_URL}/integracoes/strava/conectar/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ code }),
+  });
+
+  if (!resp.ok) {
+    let detail = "Erro ao conectar com o Strava.";
+    try {
+      const data = await resp.json();
+      if (data.detail) detail = data.detail;
+    } catch {
+      // ignora
+    }
+    throw new Error(detail);
+  }
+
+  return resp.json();
+}
