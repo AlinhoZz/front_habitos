@@ -6,11 +6,12 @@ import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { getExercicioById, Exercicio } from '@/lib/api';
 import { ArrowLeft, Dumbbell, Info, PlayCircle, Target } from 'lucide-react';
+import { AiCoach } from '@/components/AiCoach';
 
 export default function ExerciseDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const id = Number(params.id); // Converte string para number
+  const id = Number(params.id);
 
   const [exercise, setExercise] = useState<Exercicio | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +26,7 @@ export default function ExerciseDetailsPage() {
         setExercise(data);
       } catch (error) {
         console.error("Erro ao carregar exercício", error);
-        router.push('/dashboard/exercises'); // Volta se der erro
+        router.push('/dashboard/exercises');
       } finally {
         setLoading(false);
       }
@@ -45,6 +46,26 @@ export default function ExerciseDetailsPage() {
 
   if (!exercise) return null;
 
+  const aiContext = `
+    Exercício: ${exercise.nome}
+    Grupo Muscular: ${exercise.grupo_muscular || 'Geral'}
+    Equipamento: ${exercise.equipamento || 'Peso do corpo'}
+    
+    Instruções Técnicas da Ficha:
+    - Mantenha a postura neutra, abdômen levemente contraído.
+    - Evite usar impulso excessivo.
+    - Inspire na descida, expire na subida.
+    
+    Dicas passadas ao aluno:
+    - Comece com carga leve.
+    - Controle a volta do movimento.
+    - Foque em sentir o músculo.
+    
+    Cuidados passados ao aluno:
+    - Evite dores agudas.
+    - Ajuste o banco.
+  `;
+
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-slate-50 pb-16">
@@ -63,25 +84,40 @@ export default function ExerciseDetailsPage() {
             
             {/* Header visual (imagem / placeholder) */}
             <div className="w-full h-64 sm:h-80 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 flex items-center justify-center relative overflow-hidden group">
-              {/* Aqui você colocará a imagem real no futuro */}
-              <div className="flex flex-col items-center gap-3">
+
+              {/* 1. Placeholder (Fica no fundo) - Só aparece se a imagem der erro */}
+              <div className="flex flex-col items-center gap-3 absolute z-0">
                 <Dumbbell 
                   size={70} 
-                  className="text-slate-300 mb-2 group-hover:scale-110 transition-transform duration-500" 
+                  className="text-slate-300 mb-2 opacity-50" 
                 />
-                <span className="text-xs text-slate-200/90">
-                  Visualização ilustrativa do movimento
+                <span className="text-xs text-slate-200/90 font-medium">
+                  Sem imagem cadastrada
                 </span>
               </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
-              <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <span className="inline-flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-slate-700 font-semibold">
+
+              {/* 2. Imagem Real (Fica por cima) */}
+              <img 
+                src={`/exercicios/${exercise.id}.png`}
+                alt={exercise.nome}
+                className="absolute inset-0 w-full h-full object-cover z-10 transition-opacity duration-300"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+
+              {/* 3. Overlay Escuro (Opcional - para o texto branco de baixo ler melhor sobre a foto) */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-20 pointer-events-none" />
+
+              {/* 4. Badges (Grupo Muscular / Equipamento) */}
+              <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3 text-xs z-30">
+                <span className="inline-flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-slate-700 font-semibold shadow-sm">
                   <Target size={14} className="text-red-500" />
-                  {exercise.grupo_muscular || 'Grupo muscular geral'}
+                  {exercise.grupo_muscular || 'Geral'}
                 </span>
                 {exercise.equipamento && (
-                  <span className="inline-flex items-center gap-2 bg-black/25 backdrop-blur-sm px-3 py-1.5 rounded-full text-slate-100 font-medium border border-white/10">
-                    Equipamento: {exercise.equipamento}
+                  <span className="inline-flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full text-slate-100 font-medium border border-white/10 shadow-sm">
+                    {exercise.equipamento}
                   </span>
                 )}
               </div>
@@ -168,6 +204,14 @@ export default function ExerciseDetailsPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="mt-8 pt-6 border-t border-slate-100">
+                <AiCoach 
+                  exerciseName={exercise.nome}
+                  exerciseContext={aiContext}
+                />
+              </div>
+
             </div>
           </div>
 
